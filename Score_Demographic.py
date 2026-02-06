@@ -97,3 +97,82 @@ plt.tight_layout()
 plt.savefig("Visualizations/score_distribution_by_demographic.png", dpi=300)
 plt.close()
 
+import statsmodels.formula.api as smf
+from statsmodels.nonparametric.smoothers_lowess import lowess
+
+# ==================================================
+# 3. Rolling mean / LOESS-style smoothing
+# ==================================================
+plt.figure(figsize=(12, 7))
+
+for demo in order:
+    subset = df[df["demographic"] == demo]
+    yearly = subset.groupby("year")["score"].mean().reset_index()
+
+    smoothed = lowess(
+        yearly["score"],
+        yearly["year"],
+        frac=0.15  # smoothing span (adjustable)
+    )
+
+    plt.plot(
+        smoothed[:, 0],
+        smoothed[:, 1],
+        label=demo,
+        color=colors[demo],
+        linewidth=2
+    )
+
+plt.xlabel("Year")
+plt.ylabel("Smoothed Mean Score")
+plt.title("Smoothed Score Trends by Demographic (LOESS)")
+plt.legend(
+    title="Demographic",
+    loc="center left",
+    bbox_to_anchor=(1.02, 0.5),
+    frameon=False
+)
+plt.tight_layout(rect=[0, 0, 0.85, 1])
+plt.savefig("Visualizations/score_trends_loess_by_demographic.png", dpi=300)
+plt.close()
+
+# ==================================================
+# 4. Regression: score ~ demographic * year
+# ==================================================
+print("\n==============================")
+print("OLS Regression: score ~ demographic * year")
+print("==============================\n")
+
+ols_model = smf.ols(
+    "score ~ year * demographic",
+    data=df
+).fit()
+
+print(ols_model.summary())
+
+# ==================================================
+# 5. Mixed-effects model (random intercept by genre)
+# ==================================================
+# Prepare genre data
+df_me = df.copy()
+df_me["genres"] = df_me["genres"].fillna("")
+df_me = df_me.assign(
+    genre=df_me["genres"].str.split(", ")
+).explode("genre")
+df_me = df_me[df_me["genre"] != ""]
+
+print("\n==============================")
+print("Mixed-Effects Model: score ~ year + demographic + (1 | genre)")
+print("==============================\n")
+
+mixed_model = smf.mixedlm(
+    "score ~ year + demographic",
+    data=df_me,
+    groups=df_me["genre"]
+).fit(reml=False)
+
+print(mixed_model.summary())
+
+# ==================================================
+# 6. Score × genre × demographic interaction
+# =================================================
