@@ -1,6 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import statsmodels.formula.api as smf
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 # --------------------------------------------------
 # Create output directory
@@ -26,6 +28,13 @@ df = df.assign(
 
 valid_demographics = ["Shoujo", "Shounen", "Josei", "Seinen"]
 df = df[df["demographic"].isin(valid_demographics)]
+
+# Set Shounen as reference category
+df["demographic"] = pd.Categorical(
+    df["demographic"],
+    categories=["Shounen", "Shoujo", "Seinen", "Josei"],
+    ordered=False
+)
 
 # --------------------------------------------------
 # Color palette (consistent & editable)
@@ -97,11 +106,8 @@ plt.tight_layout()
 plt.savefig("Visualizations/score_distribution_by_demographic.png", dpi=300)
 plt.close()
 
-import statsmodels.formula.api as smf
-from statsmodels.nonparametric.smoothers_lowess import lowess
-
 # ==================================================
-# 3. Rolling mean / LOESS-style smoothing
+# 3. LOESS smoothing of score trends
 # ==================================================
 plt.figure(figsize=(12, 7))
 
@@ -112,7 +118,7 @@ for demo in order:
     smoothed = lowess(
         yearly["score"],
         yearly["year"],
-        frac=0.15  # smoothing span (adjustable)
+        frac=0.15
     )
 
     plt.plot(
@@ -137,10 +143,10 @@ plt.savefig("Visualizations/score_trends_loess_by_demographic.png", dpi=300)
 plt.close()
 
 # ==================================================
-# 4. Regression: score ~ demographic * year
+# 4. Regression: score ~ year * demographic
 # ==================================================
 print("\n==============================")
-print("OLS Regression: score ~ demographic * year")
+print("OLS Regression: score ~ year * demographic")
 print("==============================\n")
 
 ols_model = smf.ols(
@@ -151,9 +157,8 @@ ols_model = smf.ols(
 print(ols_model.summary())
 
 # ==================================================
-# 5. Mixed-effects model (random intercept by genre)
+# 5. Mixed-effects model: random intercept by genre
 # ==================================================
-# Prepare genre data
 df_me = df.copy()
 df_me["genres"] = df_me["genres"].fillna("")
 df_me = df_me.assign(
@@ -175,4 +180,18 @@ print(mixed_model.summary())
 
 # ==================================================
 # 6. Score × genre × demographic interaction
-# =================================================
+# ==================================================
+TOP_GENRES_INTERACTION = 5
+top_genres_int = df_me["genre"].value_counts().head(TOP_GENRES_INTERACTION).index
+df_int = df_me[df_me["genre"].isin(top_genres_int)]
+
+print("\n==============================================")
+print("OLS Interaction Model: score ~ year * genre * demographic")
+print("==============================================\n")
+
+interaction_model = smf.ols(
+    "score ~ year * genre * demographic",
+    data=df_int
+).fit()
+
+print(interaction_model.summary())
