@@ -30,14 +30,14 @@ df = df[df["demographic"].isin(valid_demographics)]
 # --------------------------------------------------
 # Color palette (consistent & editable)
 # --------------------------------------------------
-demo_colors = {
+colors = {
     "Shoujo": "#ffb3c6",
     "Shounen": "#00b4d8",
     "Josei": "#da2c43",
     "Seinen": "#03045e"
 }
 
-demo_order = ["Shoujo", "Shounen", "Josei", "Seinen"]
+order = ["Shounen", "Shoujo", "Seinen", "Josei"]
 
 # ==================================================
 # 1. Mean score over time by demographic
@@ -46,16 +46,16 @@ mean_scores = (
     df.groupby(["year", "demographic"])["score"]
       .mean()
       .unstack()
-      .reindex(columns=demo_order)
+      .reindex(columns=order)
 )
 
 plt.figure(figsize=(12, 7))
-for demo in demo_order:
+for demo in order:
     plt.plot(
         mean_scores.index,
         mean_scores[demo],
         label=demo,
-        color=demo_colors[demo],
+        color=colors[demo],
         linewidth=2
     )
 
@@ -77,17 +77,17 @@ plt.close()
 # ==================================================
 plt.figure(figsize=(10, 7))
 
-data = [df[df["demographic"] == d]["score"] for d in demo_order]
+data = [df[df["demographic"] == d]["score"] for d in order]
 
 box = plt.boxplot(
     data,
-    labels=demo_order,
+    tick_labels=order,
     patch_artist=True,
     showfliers=False
 )
 
-for patch, demo in zip(box["boxes"], demo_order):
-    patch.set_facecolor(demo_colors[demo])
+for patch, demo in zip(box["boxes"], order):
+    patch.set_facecolor(colors[demo])
     patch.set_alpha(0.85)
 
 plt.xlabel("Demographic")
@@ -97,31 +97,3 @@ plt.tight_layout()
 plt.savefig("Visualizations/score_distribution_by_demographic.png", dpi=300)
 plt.close()
 
-# ==================================================
-# 3. Mean score by demographic (overall)
-# ==================================================
-overall_means = (
-    df.groupby("demographic")["score"]
-      .mean()
-      .reindex(demo_order)
-)
-
-plt.figure(figsize=(8, 6))
-plt.bar(
-    overall_means.index,
-    overall_means.values,
-    color=[demo_colors[d] for d in overall_means.index]
-)
-
-plt.xlabel("Demographic")
-plt.ylabel("Mean Score")
-plt.title("Overall Mean TV Anime Score by Demographic (1990–2025)")
-
-for i, value in enumerate(overall_means.values):
-    plt.text(i, value, f"{value:.2f}", ha="center", va="bottom")
-
-plt.tight_layout()
-plt.savefig("Visualizations/overall_mean_score_by_demographic.png", dpi=300)
-plt.close()
-
-print("Score vs Demographic analysis completed.")
